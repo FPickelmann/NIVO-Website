@@ -22,3 +22,7 @@ Die Eingabe eines beliebigen Namens und einer beliebigen Zahlenfolge ist nur ein
 
 ## Weiterentwicklung
 Das GitHub-Pages-Projekt benötigt keinen Server. Für echte gemeinsame Bearbeitung mit dauerhaft synchronisiertem Datenstand ist ein externer Datendienst erforderlich. Bilder sind als Designstudien gekennzeichnet; reale Produktleistungsnachweise liegen nicht vor.
+
+
+## Aktualisierung (Oktober 2026)
+Die bestehenden Seiten, Navigation und Lernwelt bleiben erhalten. Angepasst wurden das Logo, die Startseitenbilder, Standorte, Team-Dokumente, Unternehmensdaten sowie Produktdarstellungen und der schematische Flaschenkonfigurator. Die Farben und Größen des Konfigurators sind visuelle Vorschauen, keine separaten realen Produktaufnahmen.
