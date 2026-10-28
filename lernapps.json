@@ -1,0 +1,46 @@
+[
+  {
+    "title": "Privatkonto bei NIVO",
+    "desc": "12 Aufträge zu Privatentnahmen, Privateinlagen und dem Abschluss des Privatkontos.",
+    "icon": "◉",
+    "date": "2026-10-28",
+    "url": "spiele/privatkonto.html",
+    "grades": [
+      9
+    ]
+  },
+  {
+    "title": "Buchungskreislauf",
+    "desc": "Bringe die sieben Schritte in die richtige Reihenfolge.",
+    "icon": "↕",
+    "date": "2026-10-14",
+    "url": "spiele/buchungskreislauf.html",
+    "grades": [
+      8
+    ]
+  },
+  {
+    "title": "NIVO Spiele",
+    "desc": "Lernspiele und Quiz – demnächst",
+    "icon": "▶",
+    "date": "2026-10-13",
+    "url": "",
+    "grades": []
+  },
+  {
+    "title": "Geschäftsbelege",
+    "desc": "Fiktive Geschäftsbelege – demnächst",
+    "icon": "▤",
+    "date": "2026-10-12",
+    "url": "",
+    "grades": []
+  },
+  {
+    "title": "NIVO Konto",
+    "desc": "Fiktive Kontoübersicht – demnächst",
+    "icon": "€",
+    "date": "2026-10-11",
+    "url": "",
+    "grades": []
+  }
+]
