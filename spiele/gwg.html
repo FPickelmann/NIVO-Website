@@ -68,6 +68,12 @@ button:disabled { opacity: .65; cursor: default; background: #f4f7f6; }
 #hinweis:empty { display: none; }
 #hinweis { margin-top: 13px; padding: 10px 12px; border-radius: 8px; background: #fff4e8; color: #75330e; }
 .ergebnis { margin-top: 12px; }
+dialog {
+  max-width: min(470px, calc(100vw - 32px)); padding: clamp(18px, 4vw, 28px);
+  border: 1px solid var(--line); border-radius: 16px; color: var(--ink);
+}
+dialog::backdrop { background: #14334485; }
+dialog p { margin-top: 12px; }
 @media (max-width: 640px) {
   .spiel { grid-template-columns: 1fr; gap: 10px; }
   .sache { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: 12px; }
@@ -165,14 +171,21 @@ const faelle = [
 const pflicht = 4;
 const ansicht = document.querySelector("#ansicht");
 const linkAufgabe = "?aufgabe=1";
+const pflichtSchluessel = "nivo-gwg-pflicht-erledigt";
 let index = 0;
+let pflichtErledigt = false;
+try {
+  pflichtErledigt = sessionStorage.getItem(pflichtSchluessel) === "ja";
+} catch {
+  // Der Zusatzteil bleibt innerhalb der geöffneten Spielseite verfügbar.
+}
 
 function zeige(html, fokus = true) {
   ansicht.innerHTML = html;
   if (fokus) ansicht.querySelector("[data-fokus]")?.focus();
 }
 
-function start(aufgabe) {
+function start(aufgabe, fokus = false) {
   if (!aufgabe) {
     zeige(`<section class="panel intro">
       <h1 data-fokus tabindex="-1">Wirtschaftsgüter einordnen</h1>
@@ -188,9 +201,13 @@ function start(aufgabe) {
     <h1 data-fokus tabindex="-1">Wirtschaftsgüter einordnen</h1>
     <p>Entscheidend ist der Nettoanschaffungswert des Einzelstücks. Bestimme den Preisbereich, prüfe gegebenenfalls die GWG-Voraussetzungen und entscheide, wie der Einkauf buchhalterisch erfasst wird.</p>
     <p>Bearbeite zuerst vier Pflichtfälle. Danach kannst du drei Zusatzfälle lösen.</p>
-    <div class="action"><button class="primary" type="button">Aufgabe starten</button></div>
-  </section>`, false);
-  ansicht.querySelector("button").addEventListener("click", () => beginne(0));
+    <div class="action">
+      <button id="pflicht-start" class="primary" type="button">Aufgabe starten</button>
+      ${pflichtErledigt ? '<button id="zusatz-start" type="button">Zusatzaufgaben starten</button>' : ""}
+    </div>
+  </section>`, fokus);
+  ansicht.querySelector("#pflicht-start").addEventListener("click", () => beginne(0));
+  ansicht.querySelector("#zusatz-start")?.addEventListener("click", () => beginne(pflicht));
 }
 
 function beginne(fallindex) {
@@ -299,7 +316,15 @@ function frage(typ, kriterium = 0) {
 function ergebnis() {
   const fall = faelle[index];
   let weiter = "Nächster Fall";
-  if (index === pflicht - 1) weiter = "Pflichtteil abschließen";
+  if (index === pflicht - 1) {
+    weiter = "Pflichtteil abschließen";
+    pflichtErledigt = true;
+    try {
+      sessionStorage.setItem(pflichtSchluessel, "ja");
+    } catch {
+      // Die Freischaltung bleibt im aktuellen Spiel erhalten.
+    }
+  }
   if (index === faelle.length - 1) weiter = "Zusatzteil abschließen";
 
   fallansicht(`<h2 data-fokus tabindex="-1">${fall.zubehoer ? "Kein GWG" : "Richtig!"}</h2>
@@ -317,11 +342,32 @@ function abschluss(zusatzFertig) {
     <h1 data-fokus tabindex="-1">${zusatzFertig ? "Zusatzteil geschafft!" : "Pflichtteil geschafft!"}</h1>
     <p>${zusatzFertig ? "Du hast alle sieben Fälle gelöst." : "Du hast alle vier Pflichtfälle gelöst."}</p>
     <div class="action">
-      ${zusatzFertig ? "" : '<button class="primary" type="button">Zusatzfragen</button>'}
-      <a class="button" href="${linkAufgabe}">Zurück zur Aufgabenstartseite</a>
+      ${zusatzFertig ? "" : '<button id="zusatz-start" class="primary" type="button">Zusatzfragen</button>'}
+      <button id="zurueck" type="button">Zurück zur Aufgabenstartseite</button>
     </div>
+    ${zusatzFertig ? "" : `<dialog aria-labelledby="rueckfrage-titel" aria-describedby="rueckfrage-hinweis">
+      <h2 id="rueckfrage-titel">Ohne Zusatzaufgaben zur Startseite?</h2>
+      <p id="rueckfrage-hinweis">Du kannst die Zusatzaufgaben später von der Startseite aus starten.</p>
+      <form class="action" method="dialog">
+        <button class="primary" value="bleiben" autofocus>Hierbleiben</button>
+        <button value="zurueck">Ja, zur Startseite</button>
+      </form>
+    </dialog>`}
   </section>`);
-  ansicht.querySelector("button")?.addEventListener("click", () => beginne(pflicht));
+  ansicht.querySelector("#zusatz-start")?.addEventListener("click", () => beginne(pflicht));
+  ansicht.querySelector("#zurueck").addEventListener("click", () => {
+    if (zusatzFertig) {
+      start(true, true);
+      return;
+    }
+    const dialog = ansicht.querySelector("dialog");
+    dialog.returnValue = "";
+    dialog.showModal();
+  });
+  const dialog = ansicht.querySelector("dialog");
+  dialog?.addEventListener("close", () => {
+    if (dialog.returnValue === "zurueck") start(true, true);
+  });
 }
 
 start(new URLSearchParams(location.search).get("aufgabe") === "1");
