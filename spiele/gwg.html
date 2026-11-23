@@ -95,22 +95,24 @@ dialog p { margin-top: 12px; }
 .buchungsbeleg {
   display: grid; grid-template-columns: minmax(100px, 230px) minmax(0, 1fr);
   align-items: center; gap: clamp(12px, 3vw, 26px); margin-bottom: 24px;
+  padding: clamp(12px, 2vw, 20px); background: #edf5f3;
+  border: 1px solid var(--line); border-radius: 12px;
 }
 .buchungsbeleg .objekt { height: clamp(90px, 23vw, 165px); margin: 0; }
 .geschaeftsfall { margin-top: 10px; }
 .buchungssatz {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: clamp(7px, 2vw, 16px); padding: clamp(8px, 2vw, 17px);
-  margin-top: 14px; background: #edf5f3; border-radius: 12px;
+  gap: clamp(9px, 2.6vw, 24px); margin-top: 20px;
 }
 .buchungsseite { min-width: 0; margin: 0; padding: 0; border: 0; }
-.buchungsseite legend { font-weight: 750; padding: 0; margin-bottom: 8px; }
-.buchungs-an { align-self: start; margin-top: 40px; font-weight: 750; }
+.buchungsseite legend { font-size: 1.25rem; line-height: 1.4; font-weight: 750; padding: 0; margin-bottom: 10px; }
+.buchungs-an { align-self: start; margin-top: 70px; line-height: 24px; font-weight: 750; }
 .buchungszeile {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start; gap: 7px;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start; gap: 9px;
 }
-.buchungszeile + .buchungszeile { margin-top: 10px; }
+.buchungszeile + .buchungszeile { margin-top: 14px; }
+.feldeingabe label { display: block; margin-bottom: 4px; font-size: .85rem; line-height: 1.3; color: var(--muted); }
 .feldeingabe input, .feldeingabe select {
   width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--paper); color: var(--ink); padding: 8px; font: inherit;
@@ -121,6 +123,7 @@ dialog p { margin-top: 12px; }
 .buchungsfeedback:empty { display: none; }
 .buchungsfeedback { margin-top: 14px; color: #75330e; }
 .buchungsfeedback.gebucht { color: var(--teal); font-weight: 750; }
+.buchungsaktionen { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 16px; }
 .nur-screenreader {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
@@ -523,16 +526,16 @@ function buchungsfall(position) {
   const zeilen = ["Soll 1", "Soll 2", "Haben"].map((seite, i) => `
     <div class="buchungszeile">
       <div class="feldeingabe">
-        <label class="nur-screenreader" for="konto-${i}">Konto ${seite}</label>
+        <label for="konto-${i}">Konto<span class="nur-screenreader"> ${seite}</span></label>
         <select id="konto-${i}" aria-describedby="konto-${i}-hinweis">
           <option value="">Konto wählen</option>${kontowahl}
         </select>
         <span class="feldhinweis" id="konto-${i}-hinweis" hidden></span>
       </div>
       <div class="feldeingabe">
-        <label class="nur-screenreader" for="betrag-${i}">Betrag in Euro ${seite}</label>
+        <label for="betrag-${i}">Betrag<span class="nur-screenreader"> in Euro ${seite}</span></label>
         <input id="betrag-${i}" inputmode="decimal" autocomplete="off" maxlength="24"
-          placeholder="Betrag in €" aria-describedby="betrag-${i}-hinweis">
+          placeholder="0,00 €" aria-describedby="betrag-${i}-hinweis">
         <span class="feldhinweis" id="betrag-${i}-hinweis" hidden></span>
       </div>
     </div>`);
@@ -561,7 +564,7 @@ function buchungsfall(position) {
           </fieldset>
         </div>
         <p class="buchungsfeedback" id="buchungsfeedback" role="status"></p>
-        <div class="action">
+        <div class="action buchungsaktionen">
           <button class="primary" id="buchung-pruefen" type="submit">Prüfen</button>
           <button class="primary" id="buchung-weiter" type="button" hidden>Weiter</button>
         </div>
