@@ -61,6 +61,8 @@ button:disabled { opacity: .65; cursor: default; background: #f4f7f6; }
 .schritt { color: var(--muted); font-size: .86rem; font-weight: 650; margin-bottom: 8px; }
 .optionen { display: grid; gap: 8px; margin-top: 16px; }
 .optionen button { justify-content: flex-start; text-align: left; }
+.optionen .buchung { align-items: flex-start; flex-direction: column; gap: 2px; }
+.buchung span + span { color: var(--muted); font-size: .88rem; font-weight: 450; }
 .optionen.kurz { grid-template-columns: 1fr 1fr; }
 .optionen button[aria-invalid="true"] { border-color: #a64b21; background: #fff6ee; }
 #hinweis:empty { display: none; }
@@ -100,10 +102,19 @@ button:disabled { opacity: .65; cursor: default; background: #f4f7f6; }
 <script>
 "use strict";
 
-const kriterien = ["Beweglich?", "Abnutzbar?", "Selbstständig nutzbar?"];
-const preise = ["bis 250,00 €", "250,01 € bis 800,00 €", "ab 800,01 €"];
+const kriterien = [
+  "Ist das Anlagegut beweglich?",
+  "Ist es abnutzbar?",
+  "Ist es selbstständig nutzbar?"
+];
+const preise = ["Bis 250,00 € netto je Stück", "250,01 € bis 800,00 € netto je Stück", "Ab 800,01 € netto je Stück"];
 const kategorien = ["Kleingut", "Geringwertiges Wirtschaftsgut (GWG)", "Hochwertiges Wirtschaftsgut", "Spezialfall Büromaterial"];
-const konten = ["6800 BMK", "0890 GWG", "Passendes Sachanlagekonto"];
+const konten = ["6800 BMK", "0890 GWG", "Kontenklasse 0 · Passendes Anlagekonto"];
+const erfassung = [
+  "Beim Kauf als Aufwand erfassen.",
+  "Aktivieren und im Anschaffungsjahr vollständig abschreiben.",
+  "Auf dem passenden Anlagekonto aktivieren und über die Nutzungsdauer abschreiben."
+];
 
 const faelle = [
   {
@@ -135,7 +146,7 @@ const faelle = [
     werte: [["Je Umschlag", "0,32 €", "0,3808 €"], ["Je Großpackung mit 1.000 Umschlägen", "320,00 €", "380,80 €"]],
     spanne: 0, kategorie: 3, konto: 0,
     preishinweis: "Schau auf den Nettopreis für einen einzelnen Umschlag.",
-    feedback: "Auch eine Großbestellung für 320,00 € netto ist Büromaterial → 6800 BMK."
+    feedback: "Briefumschläge sind Büromaterial. Sie werden unabhängig vom Stückpreis auf demselben Aufwandskonto wie Kleingüter erfasst (6800 BMK)."
   },
   {
     name: "Luftreiniger", bild: "luftreiniger", werte: [["Je Gerät", "800,00 €", "952,00 €"]],
@@ -147,7 +158,7 @@ const faelle = [
     name: "Industriewaage für den Wareneingang", bild: "industriewaage",
     werte: [["Je Waage", "1.280,00 €", "1.523,20 €"]],
     spanne: 2, kategorie: 2, konto: 2,
-    feedback: "1.280,00 € netto je Waage → hochwertiges Wirtschaftsgut → passendes Sachanlagekonto."
+    feedback: "1.280,00 € netto je Waage → hochwertiges Wirtschaftsgut → passendes Anlagekonto in Kontenklasse 0."
   }
 ];
 
@@ -175,7 +186,7 @@ function start(aufgabe) {
   zeige(`<section class="panel intro">
     <p class="eyebrow">Aufgabe 1</p>
     <h1 data-fokus tabindex="-1">Wirtschaftsgüter einordnen</h1>
-    <p>Bestimme die Nettoanschaffungskosten je Stück. Prüfe die Voraussetzungen, ordne den Einkauf ein und wähle das passende Konto.</p>
+    <p>Entscheidend ist der Nettoanschaffungswert des Einzelstücks. Bestimme den Preisbereich, prüfe gegebenenfalls die GWG-Voraussetzungen und entscheide, wie der Einkauf buchhalterisch erfasst wird.</p>
     <p>Bearbeite zuerst vier Pflichtfälle. Danach kannst du drei Zusatzfälle lösen.</p>
     <div class="action"><button class="primary" type="button">Aufgabe starten</button></div>
   </section>`, false);
@@ -215,14 +226,14 @@ function frage(typ, kriterium = 0) {
   let text, optionen, richtig, hinweis, weiter, schritt;
 
   if (typ === "preis") {
-    schritt = "Anschaffungskosten";
+    schritt = "Anschaffungskosten (AK)";
     text = "In welchem Bereich liegen die Nettoanschaffungskosten je Stück?";
     optionen = preise;
     richtig = fall.spanne;
     hinweis = fall.preishinweis || "Vergleiche den Nettopreis je Stück mit den angegebenen Preisgrenzen.";
     weiter = () => fall.spanne === 2 || fall.kategorie === 3 ? frage("kategorie") : frage("kriterium");
   } else if (typ === "kriterium") {
-    schritt = `GWG-Voraussetzungen · ${kriterium + 1} von 3`;
+    schritt = `Zuordnung zu den geringwertigen Wirtschaftsgütern (GWG) · ${kriterium + 1} von 3`;
     text = kriterien[kriterium];
     optionen = ["Ja", "Nein"];
     richtig = Number(kriterium === 2 && !!fall.zubehoer);
@@ -251,8 +262,8 @@ function frage(typ, kriterium = 0) {
     ][fall.kategorie];
     weiter = () => frage("konto");
   } else {
-    schritt = "Buchungskonto";
-    text = "Auf welches Konto buchst du den Einkauf?";
+    schritt = "Buchhalterische Erfassung";
+    text = "Wie wird der Einkauf erfasst und welches Konto passt dazu?";
     optionen = konten;
     richtig = fall.konto;
     hinweis = fall.konto === 0
@@ -265,7 +276,10 @@ function frage(typ, kriterium = 0) {
 
   fallansicht(`<p class="schritt">${schritt}</p><h2 data-fokus tabindex="-1">${text}</h2>
     <div class="optionen${optionen.length === 2 ? " kurz" : ""}">${optionen.map(
-      option => `<button type="button">${option}</button>`).join("")}</div>
+      (option, position) => typ === "konto"
+        ? `<button class="buchung" type="button"><span>${option}</span><span>${erfassung[position]}</span></button>`
+        : `<button type="button">${option}</button>`
+    ).join("")}</div>
     <p id="hinweis" role="status" aria-live="polite"></p>`);
 
   const knoepfe = [...ansicht.querySelectorAll(".optionen button")];
