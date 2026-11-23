@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#113344">
-  <title>NIVO Lernwelt · Wirtschaftsgüter einordnen</title>
+  <title>NIVO Lernwelt · Wirtschaftsgüter einordnen und buchen</title>
   <style>
 :root {
   color-scheme: light;
@@ -88,6 +88,36 @@ dialog p { margin-top: 12px; }
 }
 
 .detail { color: var(--muted); margin-top: 5px; font-size: .88rem; }
+
+[hidden] { display: none !important; }
+.buchungsfall { max-width: 780px; }
+.buchungsfall h1 { font-size: clamp(1.65rem, 4vw, 2.4rem); }
+.geschaeftsfall { margin: 10px 0 24px; }
+.buchungskopf, .buchungszeile {
+  display: grid; grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start; gap: 10px;
+}
+.buchungskopf { margin: 12px 0 4px; color: var(--muted); font-size: .85rem; }
+.buchungszeile { margin: 8px 0; }
+.buchungsseite { font-weight: 650; padding-top: 9px; }
+.feldeingabe input, .feldeingabe select {
+  width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper); color: var(--ink); padding: 8px; font: inherit;
+}
+.feldeingabe [aria-invalid="true"] { border-color: #a64b21; background: #fff6ee; }
+.feldhinweis { display: block; margin-top: 3px; color: #75330e; font-size: .85rem; }
+.buchungsfeedback:empty { display: none; }
+.buchungsfeedback { margin-top: 14px; color: #75330e; }
+.buchungsfeedback.gebucht { color: var(--teal); font-weight: 750; }
+.nur-screenreader {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (max-width: 500px) {
+  .buchungskopf, .buchungszeile { grid-template-columns: 3.1rem minmax(0, 1.05fr) minmax(0, 1fr); gap: 6px; }
+  .buchungsseite { font-size: .86rem; }
+  .feldeingabe input, .feldeingabe select { padding-inline: 5px; }
+}
 </style>
 </head>
 <body>
@@ -171,6 +201,7 @@ const faelle = [
 const pflicht = 4;
 const ansicht = document.querySelector("#ansicht");
 const linkAufgabe = "?aufgabe=1";
+const linkBuchung = "?aufgabe=2";
 const pflichtSchluessel = "nivo-gwg-pflicht-erledigt";
 let index = 0;
 let pflichtErledigt = false;
@@ -188,10 +219,10 @@ function zeige(html, fokus = true) {
 function start(aufgabe, fokus = false) {
   if (!aufgabe) {
     zeige(`<section class="panel intro">
-      <h1 data-fokus tabindex="-1">Wirtschaftsgüter einordnen</h1>
+      <h1 data-fokus tabindex="-1">Wirtschaftsgüter einordnen und buchen</h1>
       <div class="action">
         <a class="button primary" href="${linkAufgabe}">Aufgabe 1 · Wirtschaftsgüter zuordnen</a>
-        <button type="button" disabled>Aufgabe 2 · folgt</button>
+        <a class="button" href="${linkBuchung}">Aufgabe 2 · Buchungssätze bilden</a>
       </div>
     </section>`, false);
     return;
@@ -370,7 +401,270 @@ function abschluss(zusatzFertig) {
   });
 }
 
-start(new URLSearchParams(location.search).get("aufgabe") === "1");
+const aufgabe = new URLSearchParams(location.search).get("aufgabe");
+if (aufgabe !== "2") start(aufgabe === "1");
+
+"use strict";
+
+const buchungskonten = {
+  "0700": "MA",
+  "0890": "GWG",
+  "2600": "VORST",
+  "2800": "BK",
+  "2880": "KA",
+  "4400": "VE",
+  "6800": "BMK"
+};
+
+const buchungsfaelle = [
+  {
+    titel: "Profi-Laminiergerät",
+    geschaeftsfall: "NIVO kauft ein Profi-Laminiergerät für 245,00 € netto und bezahlt bar.",
+    netto: 24500, konto: "6800", zahlung: "2880",
+    sachhinweis: "Vergleiche den Nettopreis je Gerät mit der Grenze für Kleingüter."
+  },
+  {
+    titel: "Drei Akku-Bohrschrauber",
+    geschaeftsfall: "NIVO erhält eine Rechnung über drei Akku-Bohrschrauber für insgesamt 1.050,00 € netto.",
+    netto: 105000, konto: "0890", zahlung: "4400",
+    sachhinweis: "Teile den Nettogesamtpreis durch drei, um das passende Konto zu bestimmen.",
+    nettohinweis: "Für den Betrag im Buchungssatz brauchst du den Nettogesamtpreis für alle drei Geräte."
+  },
+  {
+    titel: "Druckerpapier",
+    geschaeftsfall: "NIVO kauft eine Packung mit 500 Blatt Druckerpapier für 5,95 € brutto und bezahlt mit Girocard.",
+    netto: 500, konto: "6800", zahlung: "2800", bruttoVorgegeben: true,
+    sachhinweis: "Druckerpapier ist Büromaterial. Auf welchem Aufwandskonto wird Büromaterial erfasst?"
+  },
+  {
+    titel: "Briefumschläge",
+    geschaeftsfall: "NIVO erhält eine Rechnung über 1.000 Briefumschläge fürs Büro für 320,00 € netto.",
+    netto: 32000, konto: "6800", zahlung: "4400",
+    sachhinweis: "Briefumschläge zählen zum Büromaterial. Die Zuordnung gilt unabhängig vom Stückpreis."
+  },
+  {
+    titel: "Luftreiniger",
+    geschaeftsfall: "NIVO kauft einen Luftreiniger für 952,00 € brutto und bezahlt mit Girocard.",
+    netto: 80000, konto: "0890", zahlung: "2800", bruttoVorgegeben: true,
+    sachhinweis: "Rechne den Bruttopreis in den Nettopreis um. Prüfe dann, ob genau 800,00 € noch in der GWG-Spanne liegen."
+  },
+  {
+    titel: "Industriewaage",
+    geschaeftsfall: "NIVO kauft für 1.280,00 € netto auf Ziel eine Industriewaage. Sie wird fest in die automatisierte Förderanlage im Wareneingang eingebaut.",
+    netto: 128000, konto: "0700", zahlung: "4400",
+    sachhinweis: "Die Waage ist Teil einer technischen Anlage. Welches Konto verwendet NIVO für Maschinen und Anlagen?"
+  }
+];
+
+const buchungspflicht = 3;
+const buchungsschluessel = "nivo-gwg-buchungspflicht-erledigt";
+const zahlungshinweise = {
+  "2880": "NIVO bezahlt bar. Von welchem Konto geht das Geld ab?",
+  "2800": "NIVO bezahlt mit Girocard. Welches Konto wird dadurch belastet?",
+  "4400": "NIVO kauft auf Ziel. Welche Verbindlichkeit entsteht durch die Eingangsrechnung?"
+};
+let buchungspflichtErledigt = false;
+try {
+  buchungspflichtErledigt = sessionStorage.getItem(buchungsschluessel) === "ja";
+} catch {
+  // Der Zusatzteil bleibt auf der geöffneten Spielseite verfügbar.
+}
+
+function betragInCent(eingabe) {
+  const betrag = eingabe.trim().replace(/\s*€$/, "").trimEnd();
+  if (!/^(?:[0-9]+|[0-9]{1,3}(?:\.[0-9]{3})+)(?:,[0-9]{1,2})?$/.test(betrag)) return null;
+  const [euro, cent = ""] = betrag.replaceAll(".", "").split(",");
+  const summe = Number(euro) * 100 + Number(cent.padEnd(2, "0"));
+  return Number.isSafeInteger(summe) ? summe : null;
+}
+
+function buchungsstart(fokus = false) {
+  zeige(`<section class="panel intro">
+    <p class="eyebrow">Aufgabe 2</p>
+    <h1 data-fokus tabindex="-1">Buchungssätze bilden</h1>
+    <p>Wähle für jeden Geschäftsfall die Konten im Soll und Haben und trage die Beträge ein. Rechne mit 19 % Umsatzsteuer.</p>
+    <p>Nach drei Pflichtfällen kannst du drei Zusatzfälle lösen.</p>
+    <div class="action">
+      <button id="buchung-start" class="primary" type="button">Aufgabe starten</button>
+      ${buchungspflichtErledigt ? '<button id="buchung-zusatz" type="button">Zusatzaufgaben starten</button>' : ""}
+    </div>
+  </section>`, fokus);
+  ansicht.querySelector("#buchung-start").addEventListener("click", () => buchungsfall(0));
+  ansicht.querySelector("#buchung-zusatz")?.addEventListener("click", () => buchungsfall(buchungspflicht));
+}
+
+function buchungsfall(position) {
+  const fall = buchungsfaelle[position];
+  const zusatz = position >= buchungspflicht;
+  const anzahl = zusatz ? buchungsfaelle.length - buchungspflicht : buchungspflicht;
+  const nummer = zusatz ? position - buchungspflicht + 1 : position + 1;
+  const fortschritt = Array.from({ length: anzahl }, (_, i) =>
+    `<span class="${i < nummer ? "begonnen" : ""}"></span>`).join("");
+  const kontowahl = Object.entries(buchungskonten).sort(([a], [b]) => a.localeCompare(b)).map(
+    ([nummer, kuerzel]) => `<option value="${nummer}">${nummer} ${kuerzel}</option>`
+  ).join("");
+  const zeilen = ["Soll 1", "Soll 2", "Haben"].map((seite, i) => `
+    <div class="buchungszeile">
+      <span class="buchungsseite">${seite}</span>
+      <div class="feldeingabe">
+        <label class="nur-screenreader" for="konto-${i}">Konto ${seite}</label>
+        <select id="konto-${i}" aria-describedby="konto-${i}-hinweis">
+          <option value="">Konto wählen</option>${kontowahl}
+        </select>
+        <span class="feldhinweis" id="konto-${i}-hinweis" hidden></span>
+      </div>
+      <div class="feldeingabe">
+        <label class="nur-screenreader" for="betrag-${i}">Betrag in Euro ${seite}</label>
+        <input id="betrag-${i}" inputmode="decimal" autocomplete="off" maxlength="24"
+          placeholder="Betrag in €" aria-describedby="betrag-${i}-hinweis">
+        <span class="feldhinweis" id="betrag-${i}-hinweis" hidden></span>
+      </div>
+    </div>`).join("");
+  zeige(`<p class="eyebrow">${zusatz ? "Zusatzfall" : "Pflichtfall"} ${nummer} von ${anzahl}</p>
+    <div class="meter" aria-hidden="true">${fortschritt}</div>
+    <section class="panel buchungsfall">
+      <p class="schritt">Geschäftsfall</p>
+      <h1 data-fokus tabindex="-1">${fall.titel}</h1>
+      <p class="geschaeftsfall">${fall.geschaeftsfall}</p>
+      <form id="buchungsformular">
+        <h2>Buchungssatz bilden</h2>
+        <div class="buchungskopf" aria-hidden="true"><span></span><span>Konto</span><span>Betrag in €</span></div>
+        ${zeilen}
+        <p class="buchungsfeedback" id="buchungsfeedback" role="status"></p>
+        <div class="action">
+          <button class="primary" id="buchung-pruefen" type="submit">Prüfen</button>
+          <button class="primary" id="buchung-weiter" type="button" hidden>Weiter</button>
+        </div>
+      </form>
+    </section>`);
+
+  const formular = ansicht.querySelector("#buchungsformular");
+  const pruefen = ansicht.querySelector("#buchung-pruefen");
+  const weiter = ansicht.querySelector("#buchung-weiter");
+  const feedback = ansicht.querySelector("#buchungsfeedback");
+  const zeilenfelder = [0, 1, 2].map(i => ({
+    konto: formular.querySelector(`#konto-${i}`),
+    betrag: formular.querySelector(`#betrag-${i}`)
+  }));
+  formular.addEventListener("submit", event => {
+    event.preventDefault();
+    if (pruefen.hidden || !buchungPruefen(fall, zeilenfelder, formular, feedback)) return;
+    zeilenfelder.forEach(({ konto, betrag }) => {
+      konto.disabled = true;
+      betrag.readOnly = true;
+    });
+    pruefen.hidden = true;
+    weiter.hidden = false;
+    weiter.focus();
+    if (position === buchungspflicht - 1) {
+      buchungspflichtErledigt = true;
+      try {
+        sessionStorage.setItem(buchungsschluessel, "ja");
+      } catch {
+        // Die Freischaltung bleibt im aktuellen Spiel erhalten.
+      }
+    }
+  });
+  weiter.addEventListener("click", () => {
+    const naechster = position + 1;
+    if (naechster === buchungspflicht || naechster === buchungsfaelle.length) {
+      buchungsabschluss(naechster === buchungsfaelle.length);
+    } else {
+      buchungsfall(naechster);
+    }
+  });
+}
+
+function buchungPruefen(fall, zeilen, formular, feedback) {
+  const steuer = Math.round(fall.netto * 19 / 100);
+  const sachkonto = {
+    konto: fall.konto,
+    cent: fall.netto,
+    kontohinweis: fall.sachhinweis,
+    betragshinweis: fall.nettohinweis || (fall.bruttoVorgegeben
+      ? "Ermittle den Nettobetrag, indem du den Bruttobetrag durch 1,19 teilst."
+      : "Übernimm den Nettobetrag aus dem Geschäftsfall.")
+  };
+  const vorsteuer = {
+    konto: "2600", cent: steuer,
+    kontohinweis: "Auf welches Konto kommt die Umsatzsteuer aus Sicht des Käufers?",
+    betragshinweis: fall.bruttoVorgegeben
+      ? "Berechne die Vorsteuer als Differenz zwischen Brutto- und Nettobetrag."
+      : "Die Vorsteuer beträgt 19 % des Nettobetrags."
+  };
+  const haben = {
+    konto: fall.zahlung, cent: fall.netto + steuer,
+    kontohinweis: zahlungshinweise[fall.zahlung],
+    betragshinweis: fall.bruttoVorgegeben
+      ? "Übernimm den Bruttobetrag aus dem Geschäftsfall."
+      : "Addiere Nettobetrag und Vorsteuer für den Bruttobetrag."
+  };
+
+  const bewertung = erwartung => erwartung.reduce((punkte, loesung, i) =>
+    punkte + 2 * Number(zeilen[i].konto.value === loesung.konto)
+      + Number(betragInCent(zeilen[i].betrag.value) === loesung.cent), 0);
+  const standard = [sachkonto, vorsteuer, haben];
+  const umgekehrt = [vorsteuer, sachkonto, haben];
+  const loesung = bewertung(umgekehrt) > bewertung(standard) ? umgekehrt : standard;
+
+  let richtig = true;
+  zeilen.forEach(({ konto, betrag }, i) => {
+    const erwartet = loesung[i];
+    const cent = betragInCent(betrag.value);
+    const kontofehler = konto.value !== erwartet.konto
+      ? (konto.value ? erwartet.kontohinweis : "Wähle ein Konto aus.") : "";
+    const betragfehler = cent !== erwartet.cent
+      ? (cent === null ? "Gib einen Betrag ein, zum Beispiel 1000,00." : erwartet.betragshinweis) : "";
+    for (const [feld, fehler] of [[konto, kontofehler], [betrag, betragfehler]]) {
+      const hinweis = formular.querySelector(`#${feld.id}-hinweis`);
+      hinweis.textContent = fehler;
+      hinweis.hidden = !fehler;
+      feld.toggleAttribute("aria-invalid", !!fehler);
+      if (fehler) {
+        feld.setAttribute("aria-invalid", "true");
+        richtig = false;
+      }
+    }
+  });
+  feedback.textContent = richtig ? "👍 Richtig gebucht!" : "Schau dir die Hinweise an und prüfe deine Eingaben erneut.";
+  feedback.classList.toggle("gebucht", richtig);
+  if (!richtig) formular.querySelector('[aria-invalid="true"]').focus();
+  return richtig;
+}
+
+function buchungsabschluss(zusatzFertig) {
+  zeige(`<section class="panel intro">
+    <h1 data-fokus tabindex="-1">${zusatzFertig ? "Alle Fälle geschafft!" : "Pflichtteil geschafft!"}</h1>
+    <p>${zusatzFertig ? "Du hast alle sechs Geschäftsfälle richtig gebucht." : "Du hast alle drei Pflichtfälle richtig gebucht."}</p>
+    <div class="action">
+      ${zusatzFertig ? "" : '<button id="buchung-zusatz" class="primary" type="button">Zusatzaufgaben starten</button>'}
+      <button id="buchung-zurueck" type="button">Zurück zur Aufgabenstartseite</button>
+    </div>
+    ${zusatzFertig ? "" : `<dialog aria-labelledby="buchung-dialog-titel">
+      <h2 id="buchung-dialog-titel">Ohne Zusatzaufgaben zur Startseite?</h2>
+      <p>Du kannst die Zusatzaufgaben später von der Startseite aus starten.</p>
+      <form class="action" method="dialog">
+        <button class="primary" value="bleiben" autofocus>Hierbleiben</button>
+        <button value="zurueck">Ja, zur Startseite</button>
+      </form>
+    </dialog>`}
+  </section>`);
+  ansicht.querySelector("#buchung-zusatz")?.addEventListener("click", () => buchungsfall(buchungspflicht));
+  const dialog = ansicht.querySelector("dialog");
+  ansicht.querySelector("#buchung-zurueck").addEventListener("click", () => {
+    if (!dialog) {
+      buchungsstart(true);
+      return;
+    }
+    dialog.returnValue = "";
+    dialog.showModal();
+  });
+  dialog?.addEventListener("close", () => {
+    if (dialog.returnValue === "zurueck") buchungsstart(true);
+  });
+}
+
+if (aufgabe === "2") buchungsstart();
 </script>
 </body>
 </html>
