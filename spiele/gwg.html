@@ -100,6 +100,11 @@ dialog p { margin-top: 12px; }
 }
 .buchungsbeleg .objekt { height: clamp(90px, 23vw, 165px); margin: 0; }
 .geschaeftsfall { margin-top: 10px; }
+.vorgegebene-betraege {
+  display: flex; flex-wrap: wrap; gap: 5px 16px; margin: 10px 0 0;
+}
+.vorgegebene-betraege dt { color: var(--muted); font-size: .82rem; }
+.vorgegebene-betraege dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .buchungssatz {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: clamp(9px, 2.6vw, 24px); margin-top: 20px;
@@ -438,38 +443,38 @@ const buchungskonten = {
 const buchungsfaelle = [
   {
     titel: "Profi-Laminiergerät", bild: "laminiergeraet",
-    geschaeftsfall: "NIVO kauft ein Profi-Laminiergerät für 245,00 € netto und bezahlt bar.",
+    geschaeftsfall: "NIVO kauft ein Profi-Laminiergerät und bezahlt bar.",
     netto: 24500, konto: "6800", zahlung: "2880",
     sachhinweis: "Vergleiche den Nettopreis je Gerät mit der Grenze für Kleingüter."
   },
   {
     titel: "Drei Akku-Bohrschrauber", bild: "bohrschrauber",
-    geschaeftsfall: "NIVO erhält eine Rechnung über drei Akku-Bohrschrauber für insgesamt 1.050,00 € netto.",
-    netto: 105000, konto: "0890", zahlung: "4400",
-    sachhinweis: "Teile den Nettogesamtpreis durch drei, um das passende Konto zu bestimmen.",
+    geschaeftsfall: "NIVO erhält eine Rechnung über drei Akku-Bohrschrauber.",
+    netto: 105000, menge: 3, konto: "0890", zahlung: "4400",
+    sachhinweis: "Für die Einordnung zählt der angegebene Nettopreis pro Gerät.",
     nettohinweis: "Für den Betrag im Buchungssatz brauchst du den Nettogesamtpreis für alle drei Geräte."
   },
   {
     titel: "Druckerpapier", bild: "druckerpapier",
-    geschaeftsfall: "NIVO kauft eine Packung mit 500 Blatt Druckerpapier für 5,95 € brutto und bezahlt mit Girocard.",
-    netto: 500, konto: "6800", zahlung: "2800", bruttoVorgegeben: true,
+    geschaeftsfall: "NIVO kauft eine Packung mit 500 Blatt Druckerpapier und bezahlt mit Girocard.",
+    netto: 500, konto: "6800", zahlung: "2800",
     sachhinweis: "Druckerpapier ist Büromaterial. Auf welchem Aufwandskonto wird Büromaterial erfasst?"
   },
   {
     titel: "Briefumschläge", bild: "briefumschlaege",
-    geschaeftsfall: "NIVO erhält eine Rechnung über 1.000 Briefumschläge fürs Büro für 320,00 € netto.",
+    geschaeftsfall: "NIVO erhält eine Rechnung über 1.000 Briefumschläge fürs Büro.",
     netto: 32000, konto: "6800", zahlung: "4400",
     sachhinweis: "Briefumschläge zählen zum Büromaterial. Die Zuordnung gilt unabhängig vom Stückpreis."
   },
   {
     titel: "Luftreiniger", bild: "luftreiniger",
-    geschaeftsfall: "NIVO kauft einen Luftreiniger für 952,00 € brutto und bezahlt mit Girocard.",
-    netto: 80000, konto: "0890", zahlung: "2800", bruttoVorgegeben: true,
-    sachhinweis: "Rechne den Bruttopreis in den Nettopreis um. Prüfe dann, ob genau 800,00 € noch in der GWG-Spanne liegen."
+    geschaeftsfall: "NIVO kauft einen Luftreiniger und bezahlt mit Girocard.",
+    netto: 80000, konto: "0890", zahlung: "2800",
+    sachhinweis: "Prüfe, ob der angegebene Nettopreis noch in der GWG-Spanne liegt."
   },
   {
     titel: "Industriewaage", bild: "industriewaage",
-    geschaeftsfall: "NIVO kauft für 1.280,00 € netto auf Ziel eine Industriewaage. Sie wird fest in die automatisierte Förderanlage im Wareneingang eingebaut.",
+    geschaeftsfall: "NIVO kauft eine Industriewaage auf Ziel. Sie wird fest in die automatisierte Förderanlage im Wareneingang eingebaut.",
     netto: 128000, konto: "0700", zahlung: "4400",
     sachhinweis: "Die Waage ist Teil einer technischen Anlage. Welches Konto verwendet NIVO für Maschinen und Anlagen?"
   }
@@ -502,7 +507,7 @@ function buchungsstart(fokus = false) {
   zeige(`<section class="panel intro">
     <p class="eyebrow">Aufgabe 2</p>
     <h1 data-fokus tabindex="-1">Buchungssätze bilden</h1>
-    <p>Wähle für jeden Geschäftsfall die Konten im Soll und Haben und trage die Beträge ein. Rechne mit 19 % Umsatzsteuer.</p>
+    <p>Wähle für jeden Geschäftsfall die Konten im Soll und Haben und ordne die vorgegebenen Beträge zu.</p>
     <p>Nach drei Pflichtfällen kannst du drei Zusatzfälle lösen.</p>
     <div class="action">
       <button id="buchung-start" class="primary" type="button">Aufgabe starten</button>
@@ -515,6 +520,13 @@ function buchungsstart(fokus = false) {
 
 function buchungsfall(position) {
   const fall = buchungsfaelle[position];
+  const vorsteuer = Math.round(fall.netto * 19 / 100);
+  const betraege = { netto: fall.netto, vorsteuer, brutto: fall.netto + vorsteuer };
+  const betragsangaben = [
+    [fall.menge ? "Netto gesamt" : "Netto", betraege.netto],
+    ["Vorsteuer (19 %)", betraege.vorsteuer],
+    ["Brutto", betraege.brutto]
+  ];
   const zusatz = position >= buchungspflicht;
   const anzahl = zusatz ? buchungsfaelle.length - buchungspflicht : buchungspflicht;
   const nummer = zusatz ? position - buchungspflicht + 1 : position + 1;
@@ -548,6 +560,10 @@ function buchungsfall(position) {
           <p class="schritt">Geschäftsfall</p>
           <h1 data-fokus tabindex="-1">${fall.titel}</h1>
           <p class="geschaeftsfall">${fall.geschaeftsfall}</p>
+          ${fall.menge ? `<p class="detail">Nettopreis je Gerät <strong>${euroformat.format(fall.netto / fall.menge / 100)}</strong></p>` : ""}
+          <dl class="vorgegebene-betraege">${betragsangaben.map(([label, cent]) =>
+            `<div><dt>${label}</dt><dd>${euroformat.format(cent / 100)}</dd></div>`
+          ).join("")}</dl>
         </div>
       </div>
       <form id="buchungsformular">
@@ -581,7 +597,7 @@ function buchungsfall(position) {
   }));
   formular.addEventListener("submit", event => {
     event.preventDefault();
-    if (pruefen.hidden || !buchungPruefen(fall, zeilenfelder, formular, feedback)) return;
+    if (pruefen.hidden || !buchungPruefen(fall, betraege, zeilenfelder, formular, feedback)) return;
     zeilenfelder.forEach(({ konto, betrag }) => {
       konto.disabled = true;
       betrag.value = euroformat.format(betragInCent(betrag.value) / 100);
@@ -609,29 +625,22 @@ function buchungsfall(position) {
   });
 }
 
-function buchungPruefen(fall, zeilen, formular, feedback) {
-  const steuer = Math.round(fall.netto * 19 / 100);
+function buchungPruefen(fall, betraege, zeilen, formular, feedback) {
   const sachkonto = {
     konto: fall.konto,
-    cent: fall.netto,
+    cent: betraege.netto,
     kontohinweis: fall.sachhinweis,
-    betragshinweis: fall.nettohinweis || (fall.bruttoVorgegeben
-      ? "Ermittle den Nettobetrag, indem du den Bruttobetrag durch 1,19 teilst."
-      : "Übernimm den Nettobetrag aus dem Geschäftsfall.")
+    betragshinweis: fall.nettohinweis || "Übernimm den vorgegebenen Nettobetrag."
   };
   const vorsteuer = {
-    konto: "2600", cent: steuer,
+    konto: "2600", cent: betraege.vorsteuer,
     kontohinweis: "Auf welches Konto kommt die Umsatzsteuer aus Sicht des Käufers?",
-    betragshinweis: fall.bruttoVorgegeben
-      ? "Berechne die Vorsteuer als Differenz zwischen Brutto- und Nettobetrag."
-      : "Die Vorsteuer beträgt 19 % des Nettobetrags."
+    betragshinweis: "Übernimm den vorgegebenen Vorsteuerbetrag."
   };
   const haben = {
-    konto: fall.zahlung, cent: fall.netto + steuer,
+    konto: fall.zahlung, cent: betraege.brutto,
     kontohinweis: zahlungshinweise[fall.zahlung],
-    betragshinweis: fall.bruttoVorgegeben
-      ? "Übernimm den Bruttobetrag aus dem Geschäftsfall."
-      : "Addiere Nettobetrag und Vorsteuer für den Bruttobetrag."
+    betragshinweis: "Übernimm den vorgegebenen Bruttobetrag."
   };
 
   const bewertung = erwartung => erwartung.reduce((punkte, loesung, i) =>
